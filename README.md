@@ -1,5 +1,13 @@
 # ROS 2 Java client library
 
+### Docker
+I have added a docker image so that in the future this somewhat working version with humble can live on.
+It can be found at egalberts/ros2_java, you could for example run it like this:
+```bash
+docker run -it --rm egalberts/ros2_java
+```
+
+
 ### Build status
 
 | Target                                    | Status        |
