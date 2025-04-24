@@ -153,6 +153,7 @@ set(${PROJECT_NAME}_sources
   "src/main/java/org/ros2/rcljava/executors/SingleThreadedExecutor.java"
   "src/main/java/org/ros2/rcljava/graph/EndpointInfo.java"
   "src/main/java/org/ros2/rcljava/node/BaseComposableNode.java"
+  "src/main/java/org/ros2/rcljava/node/BetterComposableNode.java"
   "src/main/java/org/ros2/rcljava/node/ComposableNode.java"
   "src/main/java/org/ros2/rcljava/node/Node.java"
   "src/main/java/org/ros2/rcljava/node/NodeImpl.java"
