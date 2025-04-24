@@ -35,7 +35,7 @@ if(NOT WIN32)
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-set(CMAKE_JAVA_COMPILE_FLAGS "-source" "17" "-target" "17")
+set(CMAKE_JAVA_COMPILE_FLAGS "-source" "21" "-target" "21")
 
 include_directories(include)
 
