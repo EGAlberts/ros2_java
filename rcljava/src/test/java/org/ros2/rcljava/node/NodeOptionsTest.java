@@ -28,6 +28,8 @@ import java.util.Arrays;
 import org.ros2.rcljava.RCLJava;
 import org.ros2.rcljava.node.Node;
 import org.ros2.rcljava.node.NodeOptions;
+import org.ros2.rcljava.parameters.*;
+
 
 public class NodeOptionsTest {
   @BeforeClass
@@ -61,6 +63,31 @@ public class NodeOptionsTest {
     Node node = RCLJava.createNode("test_node", "", RCLJava.getDefaultContext(), options);
     assertEquals("test_node", node.getName());
     assertEquals("/foo", node.getNamespace());
+
+    node.dispose();
+  }
+
+  @Test
+  public final void testCreateNodeWithArgsOverrideParams() {
+    NodeOptions options = new NodeOptions();
+    
+    options.setCliArgs(new ArrayList<String>(Arrays.asList("--ros-args",
+    "-p", "int_param:=2",
+    "-p", "bool_param:=false",
+    "-p", "string_param:=hello",
+    "-p", "double_param:=3.14")));
+    Node node = RCLJava.createNode("test_node", "", RCLJava.getDefaultContext(), options);
+    
+    node.declareParameter(new ParameterVariant("bool_param", true));
+    node.declareParameter(new ParameterVariant("int_param", 1));
+    node.declareParameter(new ParameterVariant("string_param", "world"));
+    node.declareParameter(new ParameterVariant("double_param", 1.23));
+
+    
+    assertEquals(2,node.getParameter("int_param").asInt());
+    assertEquals(false,node.getParameter("bool_param").asBool());
+    assertEquals("hello",node.getParameter("string_param").asString());
+    assertEquals(3.14,node.getParameter("double_param").asDouble(),0.01);
 
     node.dispose();
   }

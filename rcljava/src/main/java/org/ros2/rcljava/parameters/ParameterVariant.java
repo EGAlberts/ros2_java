@@ -59,6 +59,7 @@ public class ParameterVariant {
   }
 
   public ParameterVariant(final String name, final boolean boolValue) {
+    System.out.println("BOOL CONSTRUCTOR CALLED name: " + name +  "boolValue: " + boolValue);
     this.name = name;
     this.value = new rcl_interfaces.msg.ParameterValue();
     this.value.setBoolValue(boolValue);
@@ -66,6 +67,7 @@ public class ParameterVariant {
   }
 
   public ParameterVariant(final String name, final int intValue) {
+    System.out.println("INT CONSTRUCTOR CALLED name: " + name +  "intValue: " + intValue);
     this.name = name;
     this.value = new rcl_interfaces.msg.ParameterValue();
     this.value.setIntegerValue(intValue);

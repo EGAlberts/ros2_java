@@ -136,6 +136,8 @@ public class NodeImpl implements Node {
   private Object parameterCallbacksMutex;
   private List<ParameterCallback> parameterCallbacks;
 
+  private Map<String, ParameterVariant> parameterOverrides;
+
   /**
    * Constructor.
    *
@@ -156,6 +158,7 @@ public class NodeImpl implements Node {
     this.allowUndeclaredParameters = allowUndeclaredParameters;
     this.parameterCallbacksMutex = new Object();
     this.parameterCallbacks = new ArrayList<ParameterCallback>();
+    this.parameterOverrides = getParameterOverrides();
   }
 
   /**
@@ -474,6 +477,12 @@ public class NodeImpl implements Node {
         ParameterVariant parameter = itp.next();
         rcl_interfaces.msg.ParameterDescriptor descriptor = itpd.next();
 
+        // Check if the parameter exists in parameterOverrides
+        if (this.parameterOverrides.containsKey(parameter.getName())) {
+                // Use the value from parameterOverrides
+                parameter = this.parameterOverrides.get(parameter.getName());
+            }
+
         if (this.parameters.containsKey(parameter.getName())) {
           throw new ParameterAlreadyDeclaredException(String.format("Parameter '%s' is already declared", parameter.getName()));
         }
@@ -486,7 +495,6 @@ public class NodeImpl implements Node {
         results.add(parameter);
       }
     }
-
     return results;
   }
 
@@ -755,6 +763,19 @@ public class NodeImpl implements Node {
       }
       return result;
     }
+  }
+
+  private native static final void nativeGetParameters(long handle, Collection<ParameterVariant> parameters);
+
+  public final HashMap<String, ParameterVariant> getParameterOverrides() {
+    Collection<ParameterVariant> parameters = new ArrayList();
+    nativeGetParameters(this.handle, parameters);
+
+    HashMap<String, ParameterVariant> parametersMap = new HashMap<String, ParameterVariant>();
+    for (ParameterVariant parameter : parameters) {
+      parametersMap.put(parameter.getName(), parameter);
+    }
+    return parametersMap;
   }
 
   public final Collection<NodeNameInfo> getNodeNames() {

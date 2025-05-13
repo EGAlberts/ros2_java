@@ -17,12 +17,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <regex>
 
+#include "rcl_interfaces/msg/parameter_type.h"
+#include "rcl_yaml_param_parser/parser.h"
 #include "rcl/error_handling.h"
 #include "rcl/graph.h"
 #include "rcl/node.h"
 #include "rcl/rcl.h"
 #include "rcpputils/scope_exit.hpp"
+#include <rcpputils/find_and_replace.hpp>
 #include "rmw/rmw.h"
 #include "rosidl_runtime_c/message_type_support_struct.h"
 
@@ -486,4 +490,284 @@ Java_org_ros2_rcljava_node_NodeImpl_nativeGetSubscriptionsInfo(
 {
   get_endpoint_info_common(
     env, handle, jtopic_name, jsubscriptions_info, rcl_get_subscriptions_info_by_topic);
+}
+
+/// Create an rclpy.parameter.Parameter from an rcl_variant_t
+/**
+ * \param[in] jname name of the parameter
+ * \param[in] variant a variant to create a Parameter from
+ * \return an instance of ParameterVariant
+ */
+jobject
+_parameter_from_rcl_variant(JNIEnv * env, jstring jname, rcl_variant_t * variant)
+{
+  jobject parameter = nullptr;
+  jclass parameter_variant_cls = env->FindClass("org/ros2/rcljava/parameters/ParameterVariant");
+  if (variant->bool_value) {
+    jmethodID parameter_variant_init_mid = env->GetMethodID(
+      parameter_variant_cls,
+      "<init>", "(Ljava/lang/String;Z)V");
+    if (parameter_variant_init_mid == nullptr) {
+      rcljava_throw_exception(
+        env, "java/lang/NoSuchMethodException",
+        "Actually this one ParameterVariant constructor not found");
+      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
+      return nullptr;
+    }
+    parameter = env->NewObject(
+      parameter_variant_cls, parameter_variant_init_mid,
+      jname, *(variant->bool_value));
+  } else if (variant->integer_value) {
+    jmethodID parameter_variant_init_mid = env->GetMethodID(
+      parameter_variant_cls, "<init>",
+      "(Ljava/lang/String;I)V");
+    parameter = env->NewObject(
+      parameter_variant_cls, parameter_variant_init_mid,
+      jname, *(variant->integer_value));
+  } else if (variant->double_value) {
+    jmethodID parameter_variant_init_mid = env->GetMethodID(
+      parameter_variant_cls, "<init>",
+      "(Ljava/lang/String;D)V");
+    parameter = env->NewObject(
+      parameter_variant_cls, parameter_variant_init_mid,
+      jname, *(variant->double_value));
+  } else if (variant->string_value) {
+    jmethodID parameter_variant_init_mid = env->GetMethodID(
+      parameter_variant_cls, "<init>",
+      "(Ljava/lang/String;Ljava/lang/String;)V");
+
+    jstring jvalue = env->NewStringUTF(variant->string_value);
+
+    parameter = env->NewObject(
+      parameter_variant_cls, parameter_variant_init_mid,
+      jname, jvalue);
+  } else if (variant->byte_array_value) {
+    rcljava_throw_exception(env, "1", "NotYetImplemented");
+    // value = py::bytes(
+    //   reinterpret_cast<char *>(variant->byte_array_value->values),
+    //   variant->byte_array_value->size);
+  } else if (variant->bool_array_value) {
+    rcljava_throw_exception(env, "1", "NotYetImplemented");
+    // py::list list_value = py::list(variant->bool_array_value->size);
+    // for (size_t i = 0; i < variant->bool_array_value->size; ++i) {
+    //   list_value[i] = py::bool_(variant->bool_array_value->values[i]);
+    // }
+    // value = list_value;
+  } else if (variant->integer_array_value) {
+    rcljava_throw_exception(env, "1", "NotYetImplemented");
+    // py::list list_value = py::list(variant->integer_array_value->size);
+    // for (size_t i = 0; i < variant->integer_array_value->size; ++i) {
+    //   list_value[i] = py::int_(variant->integer_array_value->values[i]);
+    // }
+    // value = list_value;
+  } else if (variant->double_array_value) {
+    rcljava_throw_exception(env, "1", "NotYetImplemented");
+    // py::list list_value = py::list(variant->double_array_value->size);
+    // for (size_t i = 0; i < variant->double_array_value->size; ++i) {
+    //   list_value[i] = py::float_(variant->double_array_value->values[i]);
+    // }
+    // value = list_value;
+  } else if (variant->string_array_value) {
+    rcljava_throw_exception(env, "1", "NotYetImplemented");
+    // py::list list_value = py::list(variant->string_array_value->size);
+    // for (size_t i = 0; i < variant->string_array_value->size; ++i) {
+    //   list_value[i] = py::str(variant->string_array_value->data[i]);
+    // }
+    // value = list_value;
+  }
+
+  RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
+
+  return parameter;
+}
+
+
+void
+_populate_node_parameters_from_rcl_params(
+  JNIEnv * env,
+  const rcl_params_t * params,
+  jobject jnode_parameters_map,  // Java Map<String, List<ParameterVariant>>
+  const char * node_fqn)
+{
+  RCLJAVA_COMMON_CHECK_FOR_EXCEPTION(env);
+
+
+  for (size_t i = 0; i < params->num_nodes; ++i) {
+    std::string node_name{params->node_names[i]};
+    if (node_name.empty()) {
+      rcljava_throw_exception(env, "1", "expected node name to have at least one character");
+    }
+
+    // Make sure all node names start with '/'
+    if ('/' != node_name.front()) {
+      node_name.insert(node_name.begin(), '/');
+    }
+
+    if (node_fqn) {
+      // Update the regular expression ["/*" -> "(/\\w+)" and "/**" -> "(/\\w+)*"]
+      std::string regex = rcpputils::find_and_replace(node_name, "/*", "(/\\w+)");
+      if (!std::regex_match(node_fqn, std::regex(regex))) {
+        // No need to parse the items because the user just care about node_fqn
+        continue;
+      }
+
+      node_name = node_fqn;
+    }
+
+    // Convert the node name to a Java string
+    jstring jnode_name = env->NewStringUTF(node_name.c_str());
+
+    // Check if the node already exists in the Java Map
+    jclass map_class = env->GetObjectClass(jnode_parameters_map);
+    jmethodID contains_key_method = env->GetMethodID(
+      map_class,
+      "containsKey", "(Ljava/lang/Object;)Z");
+    jboolean node_exists = env->CallBooleanMethod(
+      jnode_parameters_map,
+      contains_key_method, jnode_name);
+
+
+    jobject parameter_list;
+
+    if (!node_exists) {
+      // Create a new list for the node's parameters
+      jclass array_list_class = env->FindClass("java/util/ArrayList");
+      jmethodID array_list_init = env->GetMethodID(array_list_class, "<init>", "()V");
+      jobject new_parameter_list = env->NewObject(array_list_class, array_list_init);
+
+      // Add the new list to the map
+      jmethodID put_method = env->GetMethodID(
+        map_class, "put",
+        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+      env->CallObjectMethod(jnode_parameters_map, put_method, jnode_name, new_parameter_list);
+
+      // Clean up local reference for the new list
+      env->DeleteLocalRef(new_parameter_list);
+    }
+
+    jmethodID get_method = env->GetMethodID(
+      map_class, "get",
+      "(Ljava/lang/Object;)Ljava/lang/Object;");
+    parameter_list = env->CallObjectMethod(jnode_parameters_map, get_method, jnode_name);
+
+
+    // Process the parameters for the current node
+    rcl_node_params_t node_params = params->params[i];
+    for (size_t j = 0; j < node_params.num_params; ++j) {
+      // Convert the parameter name to a Java string
+      jstring jparam_name = env->NewStringUTF(node_params.parameter_names[j]);
+
+      // Call the helper function to create a ParameterVariant object
+      jobject parameter_variant = _parameter_from_rcl_variant(
+        env, jparam_name, &node_params.parameter_values[j]);
+
+      // Add the ParameterVariant to the list
+      if (parameter_list == nullptr) {
+        rcljava_throw_exception(env, "java/lang/IllegalStateException", "parameter_list is null");
+      }
+      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION(env);
+
+
+      jclass list_class = env->GetObjectClass(parameter_list);
+      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION(env);
+
+      jmethodID add_method = env->GetMethodID(list_class, "add", "(Ljava/lang/Object;)Z");
+      env->CallBooleanMethod(parameter_list, add_method, parameter_variant);
+
+      // Clean up local references
+      env->DeleteLocalRef(jparam_name);
+      env->DeleteLocalRef(parameter_variant);
+    }
+
+    // Clean up local reference for the node name
+    env->DeleteLocalRef(jnode_name);
+  }
+}
+
+
+/// Populate a Java list with node parameters parsed from CLI arguments
+/**
+ * \param[in] args CLI arguments to parse for parameters
+ * \param[in] node_fqn the FQN of node
+ * \param[out] params_by_node_name A Python dict object to place parsed parameters into.
+ */
+void
+_parse_param_overrides(
+  JNIEnv * env,
+  const rcl_arguments_t * args, jobject jnode_parameters_map,
+  const char * node_fqn)
+{
+  rcl_params_t * params = nullptr;
+  if (RCL_RET_OK != rcl_arguments_get_param_overrides(args, &params)) {
+    rcljava_throw_exception(env, "1", "failed to get parameter overrides");
+  }
+  if (params) {
+    RCPPUTILS_SCOPE_EXIT({rcl_yaml_node_struct_fini(params);});
+    _populate_node_parameters_from_rcl_params(
+      env, params, jnode_parameters_map, node_fqn);
+  }
+}
+
+JNIEXPORT void JNICALL
+Java_org_ros2_rcljava_node_NodeImpl_nativeGetParameters(
+  JNIEnv * env, jclass, jlong handle, jobject jparameters)
+{
+  const rcl_node_options_t * node_options =
+    rcl_node_get_options(reinterpret_cast<rcl_node_t *>(handle));
+
+  const char * node_fqn = rcl_node_get_fully_qualified_name(reinterpret_cast<rcl_node_t *>(handle));
+  if (!node_fqn) {
+    rcljava_throw_exception(env, "1", "failed to get node fully qualified name");
+  }
+  RCLJAVA_COMMON_CHECK_FOR_EXCEPTION(env);
+
+  // Create a new HashMap for jnode_parameters_map
+  jclass hhash_map_class = env->FindClass("java/util/HashMap");
+  if (hhash_map_class == nullptr) {
+    rcljava_throw_exception(
+      env, "java/lang/ClassNotFoundException",
+      "java.util.HashMap class not found");
+    return;
+  }
+  RCLJAVA_COMMON_CHECK_FOR_EXCEPTION(env);
+
+  jclass hash_map_class = env->FindClass("java/util/HashMap");
+  jmethodID hash_map_init = env->GetMethodID(hash_map_class, "<init>", "()V");
+  jobject jnode_parameters_map = env->NewObject(hash_map_class, hash_map_init);
+
+  if (node_options->use_global_arguments) {
+    _parse_param_overrides(
+      env,
+      &(reinterpret_cast<rcl_node_t *>(handle)->context->global_arguments),
+      jnode_parameters_map, node_fqn);
+  }
+
+  _parse_param_overrides(
+    env,
+    &(node_options->arguments),
+    jnode_parameters_map, node_fqn);
+
+
+  // Access the parameters for the current node from the map
+  jclass map_class = env->GetObjectClass(jnode_parameters_map);
+  jmethodID get_method = env->GetMethodID(
+    map_class, "get",
+    "(Ljava/lang/Object;)Ljava/lang/Object;");
+
+  // Convert the node FQN to a Java string
+  jstring jnode_fqn = env->NewStringUTF(node_fqn);
+
+  // Retrieve the list of parameters for the node
+  jobject parameter_list = env->CallObjectMethod(jnode_parameters_map, get_method, jnode_fqn);
+
+  // Check if the list is not null
+  if (parameter_list != nullptr) {
+    // Add all parameters from the list to jparameters
+    jclass list_class = env->GetObjectClass(jparameters);
+    jmethodID add_all_method = env->GetMethodID(list_class, "addAll", "(Ljava/util/Collection;)Z");
+    env->CallBooleanMethod(jparameters, add_all_method, parameter_list);
+  }
+
+  // Clean up local references
+  env->DeleteLocalRef(jnode_fqn);
 }

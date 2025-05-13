@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 
 import org.ros2.rcljava.client.Client;
 import org.ros2.rcljava.concurrent.Callback;
@@ -598,4 +599,6 @@ public interface Node extends Disposable {
    *    passed topic.
    */
   Collection<EndpointInfo> getSubscriptionsInfo(final String topicName);
+
+  HashMap<String, ParameterVariant> getParameterOverrides();
 }
