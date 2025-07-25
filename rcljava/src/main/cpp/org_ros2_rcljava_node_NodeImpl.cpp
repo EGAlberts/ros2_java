@@ -507,13 +507,7 @@ _parameter_from_rcl_variant(JNIEnv * env, jstring jname, rcl_variant_t * variant
     jmethodID parameter_variant_init_mid = env->GetMethodID(
       parameter_variant_cls,
       "<init>", "(Ljava/lang/String;Z)V");
-    if (parameter_variant_init_mid == nullptr) {
-      rcljava_throw_exception(
-        env, "java/lang/NoSuchMethodException",
-        "Actually this one ParameterVariant constructor not found");
-      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
-      return nullptr;
-    }
+
     parameter = env->NewObject(
       parameter_variant_cls, parameter_variant_init_mid,
       jname, *(variant->bool_value));
@@ -568,12 +562,48 @@ _parameter_from_rcl_variant(JNIEnv * env, jstring jname, rcl_variant_t * variant
     // }
     // value = list_value;
   } else if (variant->string_array_value) {
-    rcljava_throw_exception(env, "1", "NotYetImplemented");
-    // py::list list_value = py::list(variant->string_array_value->size);
-    // for (size_t i = 0; i < variant->string_array_value->size; ++i) {
-    //   list_value[i] = py::str(variant->string_array_value->data[i]);
-    // }
-    // value = list_value;
+    jmethodID parameter_variant_init_mid = env->GetMethodID(
+      parameter_variant_cls, "<init>",
+      "(Ljava/lang/String;[Ljava/lang/String;)V");
+    if (parameter_variant_init_mid == nullptr) {
+      rcljava_throw_exception(
+        env,
+        "java/lang/NoSuchMethodException",
+        "ParameterVariant constructor for string arrays not found");
+      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
+      return nullptr;
+    }
+
+    size_t array_size = variant->string_array_value->size;
+    jobjectArray jstring_array = env->NewObjectArray(
+      array_size, env->FindClass("java/lang/String"), nullptr);
+    if (jstring_array == nullptr) {
+      rcljava_throw_exception(
+        env,
+        "java/lang/OutOfMemoryError",
+        "Failed to create Java string array");
+      RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
+      return nullptr;
+    }
+
+    for (size_t i = 0; i < array_size; ++i) {
+      jstring jvalue = env->NewStringUTF(variant->string_array_value->data[i]);
+      if (jvalue == nullptr) {
+        rcljava_throw_exception(env, "java/lang/OutOfMemoryError", "Failed to create Java string");
+        RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");
+        return nullptr;
+      }
+      env->SetObjectArrayElement(jstring_array, i, jvalue);
+      env->DeleteLocalRef(jvalue);  // Clean up local reference
+    }
+
+    parameter = env->NewObject(
+      parameter_variant_cls, parameter_variant_init_mid, jname, jstring_array);
+    if (env->ExceptionCheck()) {
+      return nullptr;
+    }
+
+    env->DeleteLocalRef(jstring_array);
   }
 
   RCLJAVA_COMMON_CHECK_FOR_EXCEPTION_WITH_ERROR_STATEMENT(env, "boo!");

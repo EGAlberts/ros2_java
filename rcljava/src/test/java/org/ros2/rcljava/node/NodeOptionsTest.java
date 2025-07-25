@@ -75,19 +75,22 @@ public class NodeOptionsTest {
     "-p", "int_param:=2",
     "-p", "bool_param:=false",
     "-p", "string_param:=hello",
-    "-p", "double_param:=3.14")));
+    "-p", "double_param:=3.14",
+    "-p", "string_array_param:=[hello,world]")));
     Node node = RCLJava.createNode("test_node", "", RCLJava.getDefaultContext(), options);
     
     node.declareParameter(new ParameterVariant("bool_param", true));
     node.declareParameter(new ParameterVariant("int_param", 1));
     node.declareParameter(new ParameterVariant("string_param", "world"));
     node.declareParameter(new ParameterVariant("double_param", 1.23));
+    node.declareParameter(new ParameterVariant("string_array_param", new String[] {"foo", "bar"}));
 
     
     assertEquals(2,node.getParameter("int_param").asInt());
     assertEquals(false,node.getParameter("bool_param").asBool());
     assertEquals("hello",node.getParameter("string_param").asString());
     assertEquals(3.14,node.getParameter("double_param").asDouble(),0.01);
+    assertEquals(new String[] {"hello", "world"}, node.getParameter("string_array_param").asStringArray());
 
     node.dispose();
   }
