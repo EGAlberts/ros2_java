@@ -20,7 +20,7 @@ RUN pip install -U git+https://github.com/colcon/colcon-gradle
 RUN pip install --no-deps -U git+https://github.com/colcon/colcon-ros-gradle
 
 RUN curl -s "https://get.sdkman.io" | bash \
-    && bash -c "source /root/.sdkman/bin/sdkman-init.sh && sdk install gradle 7.5"
+    && bash -c "source /root/.sdkman/bin/sdkman-init.sh && sdk install gradle 8.5"
     
 ENV SDKMAN_DIR="/root/.sdkman"
 ENV PATH="$SDKMAN_DIR/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"    
