@@ -9,6 +9,10 @@ RUN apt update \
   python3-pip \
   unzip \
   zip \
+  git \
+  python3-rosdep \
+  openjdk-21-jdk \
+  build-essential \
   && rm -rf /var/lib/apt/lists/* 
 
 ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
@@ -25,7 +29,7 @@ ENV PATH="$SDKMAN_DIR/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"
     
 WORKDIR /root/ros2_java_ws
 RUN mkdir -p ~/ros2_java_ws/src
-RUN curl -skL https://raw.githubusercontent.com/EGAlberts/ros2_java/refs/heads/humble-devel/ros2_java_desktop.repos | vcs import src
+RUN curl -skL https://raw.githubusercontent.com/EGAlberts/ros2_java/refs/heads/jazzy-devel/ros2_java_desktop.repos | vcs import src
 RUN git clone https://github.com/EGAlberts/ament_gradle_plugin.git --branch ivanpauno/gradle7.5-compatibility ./src/ament_gradle_plugin
 
 RUN rosdep init
@@ -36,4 +40,4 @@ RUN apt update && apt upgrade -y \
 RUN cd src/ament_gradle_plugin && gradle publishToMavenLocal
 
     
-RUN bash -c "source /opt/ros/jazzy/setup.bash && colcon build --symlink-install"
+# RUN bash -c "source /opt/ros/jazzy/setup.bash && colcon build --symlink-install"
