@@ -256,8 +256,8 @@ foreach(_generated_cpp_file ${_generated_extension_files})
     ${rosidl_generate_interfaces_TARGET}__rosidl_generator_c
     ${_extension_link_flags}
   )
-  rosidl_target_interfaces(${_library_name}
-    ${PROJECT_NAME} rosidl_typesupport_c)
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_c")
+  target_link_libraries(${_library_name} "${cpp_typesupport_target}")
   target_include_directories(${_library_name}
     PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_c
