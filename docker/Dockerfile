@@ -2,7 +2,7 @@ FROM ros:humble-ros-core
 
 RUN apt update \
     && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends --no-install-suggests \
-  openjdk-17-jdk \
+  openjdk-21-jdk \
   ros-dev-tools \
   wget \
   python3-vcstool \
@@ -13,7 +13,7 @@ RUN apt update \
   zip \
   && rm -rf /var/lib/apt/lists/* 
 
-ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
 RUN pip install -U git+https://github.com/colcon/colcon-gradle
@@ -28,6 +28,7 @@ ENV PATH="$SDKMAN_DIR/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"
 WORKDIR /root/ros2_java_ws
 RUN mkdir -p ~/ros2_java_ws/src
 RUN curl -skL https://raw.githubusercontent.com/EGAlberts/ros2_java/refs/heads/humble-devel/ros2_java_desktop.repos | vcs import src
+COPY . ./src/ros2_java/ros2_java
 RUN git clone https://github.com/EGAlberts/ament_gradle_plugin.git --branch ivanpauno/gradle7.5-compatibility ./src/ament_gradle_plugin
 
 RUN rosdep init
