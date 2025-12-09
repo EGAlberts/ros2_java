@@ -41,4 +41,8 @@ RUN apt update && apt upgrade -y \
 RUN cd src/ament_gradle_plugin && gradle publishToMavenLocal
 
     
+RUN bash -c "source /opt/ros/jazzy/setup.bash && colcon build --packages-select rcljava_common ament_java_resources ament_build_type_gradle ament_cmake_export_jars ament_cmake_export_jni_libraries rosidl_generator_java"
+RUN bash -c "source ~/ros2_java_ws/install/setup.bash && colcon build --packages-select common_interfaces example_interfaces rcl_interfaces unique_identifier_msgs"
+
+    
 # RUN bash -c "source /opt/ros/jazzy/setup.bash && colcon build --symlink-install"

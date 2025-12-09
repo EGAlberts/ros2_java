@@ -79,14 +79,15 @@ set(${PROJECT_NAME}_jni_sources
   "src/main/cpp/org_ros2_rcljava_timer_WallTimerImpl.cpp"
 )
 
-function(string_camel_case_to_lower_case_underscore INPUT OUTPUT)
-  # Insert underscore before each capital letter
-  string(REGEX REPLACE "([A-Z])" "_\\1" _tmp "${INPUT}")
-  # Lowercase output
-  string(TOLOWER "${_tmp}" _tmp2)
-  # Remove leading underscore
-  string(REGEX REPLACE "^_" "" _tmp3 "${_tmp2}")
-  set(${OUTPUT} "${_tmp3}" PARENT_SCOPE)
+function(string_camel_case_to_lower_case_underscore str var)
+  # insert an underscore before any upper case letter
+  # which is not followed by another upper case letter
+  string(REGEX REPLACE "(.)([A-Z][a-z]+)" "\\1_\\2" value "${str}")
+  # insert an underscore before any upper case letter
+  # which is preseded by a lower case letter or number
+  string(REGEX REPLACE "([a-z0-9])([A-Z])" "\\1_\\2" value "${value}")
+  string(TOLOWER "${value}" value)
+  set(${var} "${value}" PARENT_SCOPE)
 endfunction()
 
 foreach(_jni_source ${${PROJECT_NAME}_jni_sources})

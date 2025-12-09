@@ -1,0 +1,92 @@
+FROM ubuntu:noble
+
+RUN echo 'Etc/UTC' > /etc/timezone && \
+    ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
+    apt-get update && \
+    apt-get install -q -y --no-install-recommends tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
+# install packages
+RUN apt-get update && apt-get install -q -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    dirmngr \
+    gnupg2 \
+    && rm -rf /var/lib/apt/lists/*
+    
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+ENV ROS_DISTRO=jazzy
+RUN apt update
+RUN apt install -y software-properties-common
+RUN add-apt-repository universe
+
+RUN curl -L -s -o /tmp/ros2-apt-source.deb https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.noble_all.deb \
+    && echo "35441f3092fd05773a3c397fab38661bec466584c7a1f1c05366579997cb5fe7 /tmp/ros2-apt-source.deb" | sha256sum --strict --check \
+    && apt-get update \
+    && apt-get install /tmp/ros2-apt-source.deb \
+    && rm -f /tmp/ros2-apt-source.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN apt update && apt install -y \
+  python3-flake8-blind-except \
+  python3-flake8-class-newline \
+  python3-flake8-deprecated \
+  python3-mypy \
+  python3-pip \
+  python3-pytest \
+  python3-pytest-cov \
+  python3-pytest-mock \
+  python3-pytest-repeat \
+  python3-pytest-rerunfailures \
+  python3-pytest-runner \
+  python3-pytest-timeout \
+  ros-dev-tools
+
+RUN apt update \
+    && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends --no-install-suggests \
+  wget \
+  python3-vcstool \
+  curl \
+  python3-colcon-common-extensions \
+  python3-pip \
+  unzip \
+  zip \
+  git \
+  python3-rosdep \
+  openjdk-21-jdk \
+  build-essential \
+  && rm -rf /var/lib/apt/lists/* 
+
+ENV JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+RUN pip install --break-system-packages -U git+https://github.com/colcon/colcon-gradle
+RUN pip install --break-system-packages --no-deps -U git+https://github.com/colcon/colcon-ros-gradle
+
+RUN curl -s "https://get.sdkman.io" | bash \
+    && bash -c "source /root/.sdkman/bin/sdkman-init.sh && sdk install gradle 8.5"
+    
+ENV SDKMAN_DIR="/root/.sdkman"
+ENV PATH="$SDKMAN_DIR/bin:$SDKMAN_DIR/candidates/gradle/current/bin:$PATH"    
+
+RUN mkdir -p ~/ros2_jazzy/src
+RUN cd ~/ros2_jazzy && vcs import --input https://raw.githubusercontent.com/ros2/ros2/jazzy/ros2.repos src
+
+WORKDIR /root/ros2_jazzy
+RUN mkdir -p ~/ros2_jazzy/ros2-java
+RUN curl -skL https://raw.githubusercontent.com/EGAlberts/ros2_java/refs/heads/jazzy-devel/ros2_java_desktop.repos | vcs import src
+COPY . ./src/ros2-java/ros2-java
+RUN git clone https://github.com/EGAlberts/ament_gradle_plugin.git --branch ivanpauno/gradle7.5-compatibility ./src/ament_gradle_plugin
+
+RUN rosdep init
+RUN apt update && apt upgrade -y \
+    && rosdep update \
+    && rosdep install -y --ignore-src --from-paths src --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers ament_tools"
+
+RUN cd src/ament_gradle_plugin && gradle publishToMavenLocal
+
+    
+RUN cd ~/ros2_jazzy && colcon build --symlink-install --packages-skip image_tools intra_process_demo --cmake-args -DBUILD_TESTING=OFF
